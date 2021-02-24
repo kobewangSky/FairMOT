@@ -67,7 +67,36 @@ def write_results_score(filename, results, data_type):
     logger.info('save results to {}'.format(filename))
 
 
-def eval_seq(opt, dataloader, data_type, result_filename, save_dir=None, show_image=True, frame_rate=30, use_cuda=True):
+def eval_seq(opt, dataloader, data_type, result_filename, save_dir=None, show_image=True, frame_rate=30, use_cuda=True, gt_path = None):
+
+
+    gt_results_dict = dict()
+    if gt_path:
+        if os.path.isfile(gt_path):
+            with open(gt_path, 'r') as f:
+                for line in f.readlines():
+                    linelist = line.split(',')
+                    if len(linelist) < 7:
+                        continue
+                    fid = int(linelist[0])
+                    if fid < 1:
+                        continue
+                    gt_results_dict.setdefault(fid, list())
+
+                    box_size = float(linelist[4]) * float(linelist[5])
+
+                    score = 1
+
+                    # if box_size > 7000:
+                    # if box_size <= 7000 or box_size >= 15000:
+                    # if box_size < 15000:
+                    # continue
+
+                    tlwh = tuple(map(float, linelist[2:6]))
+                    target_id = (linelist[1])
+
+                    gt_results_dict[fid].append((tlwh, target_id, score))
+
     if save_dir:
         mkdir_if_missing(save_dir)
     tracker = JDETracker(opt, frame_rate=frame_rate)
@@ -75,6 +104,7 @@ def eval_seq(opt, dataloader, data_type, result_filename, save_dir=None, show_im
     results = []
     frame_id = 0
     #for path, img, img0 in dataloader:
+
     for i, (path, img, img0) in enumerate(dataloader):
         #if i % 8 != 0:
             #continue
@@ -103,9 +133,12 @@ def eval_seq(opt, dataloader, data_type, result_filename, save_dir=None, show_im
         # save results
         results.append((frame_id + 1, online_tlwhs, online_ids))
         #results.append((frame_id + 1, online_tlwhs, online_ids, online_scores))
+
+
+
         if show_image or save_dir is not None:
             online_im = vis.plot_tracking(img0, online_tlwhs, online_ids, frame_id=frame_id,
-                                          fps=1. / timer.average_time)
+                                          fps=1. / timer.average_time, gt_box = gt_results_dict[frame_id + 1])
         if show_image:
             cv2.imshow('online_im', online_im)
         if save_dir is not None:
@@ -136,7 +169,7 @@ def main(opt, data_root='/data/MOT16/train', det_root=None, seqs=('MOT16-05',), 
         meta_info = open(os.path.join(data_root, seq, 'seqinfo.ini')).read()
         frame_rate = int(meta_info[meta_info.find('frameRate') + 10:meta_info.find('\nseqLength')])
         nf, ta, tc = eval_seq(opt, dataloader, data_type, result_filename,
-                              save_dir=output_dir, show_image=show_image, frame_rate=frame_rate)
+                              save_dir=output_dir, show_image=show_image, frame_rate=frame_rate, gt_path = os.path.join(data_root, seq, 'gt', 'gt.txt'))
         n_frame += nf
         timer_avgs.append(ta)
         timer_calls.append(tc)
@@ -172,13 +205,15 @@ if __name__ == '__main__':
     os.environ['CUDA_VISIBLE_DEVICES'] = '1'
     opt = opts().init()
 
+    # if not opt.val_mot16:
+    #     seqs_str = '''KITTI-13
+    #                   KITTI-17
+    #                   ADL-Rundle-6
+    #                   PETS09-S2L1
+    #                   TUD-Campus
+    #                   TUD-Stadtmitte'''
     if not opt.val_mot16:
-        seqs_str = '''KITTI-13
-                      KITTI-17
-                      ADL-Rundle-6
-                      PETS09-S2L1
-                      TUD-Campus
-                      TUD-Stadtmitte'''
+        seqs_str = '''KITTI-13'''
         #seqs_str = '''TUD-Campus'''
         data_root = os.path.join(opt.data_dir, 'MOT15/images/train')
     else:
@@ -260,12 +295,18 @@ if __name__ == '__main__':
                       MOT20-08
                       '''
         data_root = os.path.join(opt.data_dir, 'MOT20/images/test')
+    if opt.test_blackai:
+        seqs_str = '''hfm1-8
+                    hfm1-80
+                    hfm1-76
+                              '''
+        data_root = os.path.join(opt.data_dir, 'black_ai_evaluation/images/train/')
     seqs = [seq.strip() for seq in seqs_str.split()]
 
     main(opt,
          data_root=data_root,
          seqs=seqs,
-         exp_name='MOT17_test_public_dla34',
+         exp_name='black_ai_evaluation',
          show_image=False,
          save_images=False,
          save_videos=False)

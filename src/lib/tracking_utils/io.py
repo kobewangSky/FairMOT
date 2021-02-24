@@ -64,6 +64,7 @@ def read_mot_results(filename, is_gt, is_ignore):
     valid_labels = {1}
     ignore_labels = {2, 7, 8, 12}
     results_dict = dict()
+    merge_uuid = {}
     if os.path.isfile(filename):
         with open(filename, 'r') as f:
             for line in f.readlines():
@@ -102,7 +103,9 @@ def read_mot_results(filename, is_gt, is_ignore):
                     #continue
 
                 tlwh = tuple(map(float, linelist[2:6]))
-                target_id = int(linelist[1])
+                if linelist[1] not in merge_uuid:
+                    merge_uuid[linelist[1]] = len(merge_uuid) + 1
+                target_id = (merge_uuid[linelist[1]])
 
                 results_dict[fid].append((tlwh, target_id, score))
 

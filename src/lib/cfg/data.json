@@ -1,5 +1,5 @@
 {
-    "root":"/data/yfzhang/MOT/JDE",
+    "root":"/root/data/FairMOT/",
     "train":
     {
         "mot17":"./data/mot17.train",
